@@ -149,11 +149,3 @@ func ParseContentFile(filePath string) (ContentFile, error) {
 
 	return contentFile, nil
 }
-
-func parseContentMetadata(rawMetadata string) (ContentMetadata, error) {
-	metadata := ContentMetadata{}
-	if err := yaml.Unmarshal([]byte(rawMetadata), &metadata); err != nil {
-		return ContentMetadata{}, fmt.Errorf("failed to parse metadata as yaml: %w", err)
-	}
-	return metadata, nil
-}

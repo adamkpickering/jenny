@@ -52,7 +52,7 @@ func copyStatic() error {
 		return fmt.Errorf("failed to remove existing static output directory: %w", err)
 	}
 	staticFs := os.DirFS(staticPath)
-	if err := os.CopyFS(outputStaticPath, staticFs); err != nil {
+	if err := os.CopyFS(outputStaticPath, staticFs); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to copy filesystem: %w", err)
 	}
 	return nil

@@ -32,7 +32,12 @@ var buildCmd = &cobra.Command{
 }
 
 func runBuild(cmd *cobra.Command, args []string) error {
-	templates, err := template.ParseGlob("templates/*.gotmpl")
+	return build()
+}
+
+func build() error {
+	templatesGlob := filepath.Join(templatesPath, "*.gotmpl")
+	templates, err := template.ParseGlob(templatesGlob)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
 	}

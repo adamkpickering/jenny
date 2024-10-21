@@ -19,7 +19,7 @@ const (
 	contentPath   = "content"
 	outputPath    = "output"
 	templatesPath = "templates"
-	staticPath    = "templates"
+	staticPath    = "static"
 )
 
 func init() {

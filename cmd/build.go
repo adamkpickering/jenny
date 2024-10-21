@@ -19,6 +19,7 @@ const (
 	contentPath   = "content"
 	outputPath    = "output"
 	templatesPath = "templates"
+	staticPath    = "templates"
 )
 
 func init() {
@@ -36,6 +37,28 @@ func runBuild(cmd *cobra.Command, args []string) error {
 }
 
 func build() error {
+	if err := buildContent(); err != nil {
+		return fmt.Errorf("failed to build content: %w", err)
+	}
+	if err := copyStatic(); err != nil {
+		return fmt.Errorf("failed to copy static directory: %w", err)
+	}
+	return nil
+}
+
+func copyStatic() error {
+	outputStaticPath := filepath.Join(outputPath, "static")
+	if err := os.RemoveAll(outputStaticPath); err != nil {
+		return fmt.Errorf("failed to remove existing static output directory: %w", err)
+	}
+	staticFs := os.DirFS(staticPath)
+	if err := os.CopyFS(outputStaticPath, staticFs); err != nil {
+		return fmt.Errorf("failed to copy filesystem: %w", err)
+	}
+	return nil
+}
+
+func buildContent() error {
 	templatesGlob := filepath.Join(templatesPath, "*.gotmpl")
 	templates, err := template.ParseGlob(templatesGlob)
 	if err != nil {

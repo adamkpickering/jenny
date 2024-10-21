@@ -1,6 +1,6 @@
 module github.com/adamkpickering/adamkpickering.github.io
 
-go 1.22.0
+go 1.23.2
 
 require (
 	github.com/spf13/cobra v1.8.1

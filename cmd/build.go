@@ -37,6 +37,9 @@ func runBuild(cmd *cobra.Command, args []string) error {
 }
 
 func build() error {
+	if err := os.RemoveAll(outputPath); err != nil {
+		return fmt.Errorf("failed to wipe output dir: %w", err)
+	}
 	if err := buildContent(); err != nil {
 		return fmt.Errorf("failed to build content: %w", err)
 	}
@@ -70,9 +73,6 @@ func buildContent() error {
 		return fmt.Errorf("failed to read %s: %w", contentPath, err)
 	}
 
-	if err := os.RemoveAll(outputPath); err != nil {
-		return fmt.Errorf("failed to wipe output dir: %w", err)
-	}
 	if err := os.MkdirAll(outputPath, 0o755); err != nil {
 		return fmt.Errorf("failed to ensure output path exists: %w", err)
 	}

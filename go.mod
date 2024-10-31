@@ -1,4 +1,4 @@
-module github.com/adamkpickering/adamkpickering.github.io
+module github.com/adamkpickering/jenny
 
 go 1.23.2
 

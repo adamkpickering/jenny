@@ -9,7 +9,6 @@ import (
 type ConfigJson struct {
 	Content   string
 	Output    string
-	Static    string
 	Templates string
 }
 

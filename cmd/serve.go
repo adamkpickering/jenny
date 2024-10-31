@@ -48,10 +48,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	defer watcher.Close()
 
-	for _, dirPath := range []string{configJson.Output, configJson.Content, configJson.Static} {
-		if err := watcher.Add(dirPath); err != nil {
-			return fmt.Errorf("failed to watch %s: %w", dirPath, err)
-		}
+	if err := watcher.Add(configJson.Content); err != nil {
+		return fmt.Errorf("failed to watch %s: %w", configJson.Content, err)
 	}
 
 	go func() {

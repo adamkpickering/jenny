@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,69 +32,65 @@ func runBuild(cmd *cobra.Command, args []string) error {
 }
 
 func build() error {
-	if err := os.RemoveAll(configJson.Output); err != nil {
-		return fmt.Errorf("failed to wipe output dir: %w", err)
-	}
-	if err := buildContent(); err != nil {
-		return fmt.Errorf("failed to build content: %w", err)
-	}
-	if err := copyStatic(); err != nil {
-		return fmt.Errorf("failed to copy static directory: %w", err)
-	}
-	return nil
-}
-
-func copyStatic() error {
-	outputStaticPath := filepath.Join(configJson.Output, "static")
-	if err := os.RemoveAll(outputStaticPath); err != nil {
-		return fmt.Errorf("failed to remove existing static output directory: %w", err)
-	}
-	staticFs := os.DirFS(configJson.Static)
-	if err := os.CopyFS(outputStaticPath, staticFs); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to copy filesystem: %w", err)
-	}
-	return nil
-}
-
-func buildContent() error {
 	templatesGlob := filepath.Join(configJson.Templates, "*.gotmpl")
 	templates, err := template.ParseGlob(templatesGlob)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
 	}
 
-	dirEntries, err := os.ReadDir(configJson.Content)
-	if err != nil {
-		return fmt.Errorf("failed to read %s: %w", configJson.Content, err)
+	// wipe output directory
+	if err := os.RemoveAll(configJson.Output); err != nil {
+		return fmt.Errorf("failed to wipe output dir: %w", err)
 	}
-
 	if err := os.MkdirAll(configJson.Output, 0o755); err != nil {
-		return fmt.Errorf("failed to ensure output path exists: %w", err)
+		return fmt.Errorf("failed to ensure output dir exists: %w", err)
 	}
 
-	for _, dirEntry := range dirEntries {
-		if dirEntry.IsDir() {
-			continue
+	buildFunc := func(contentPath string, dirEntry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		contentPath := filepath.Join(configJson.Content, dirEntry.Name())
-		parts := strings.Split(dirEntry.Name(), ".")
+		relativePath, err := filepath.Rel(configJson.Content, contentPath)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path of %s: %w", contentPath, err)
+		}
+		outputPath := filepath.Join(configJson.Output, relativePath)
+		if dirEntry.IsDir() {
+			if err := os.MkdirAll(outputPath, 0o755); err != nil {
+				return fmt.Errorf("failed to create %s: %w", outputPath, err)
+			}
+			return nil
+		}
+
+		if ext := filepath.Ext(contentPath); ext != ".md" {
+			if err := copyFile(outputPath, contentPath); err != nil {
+				return fmt.Errorf("failed to copy %s to %s: %w", contentPath, outputPath, err)
+			}
+			return nil
+		}
+
+		// get output path
+		parentDir, fileName := filepath.Split(contentPath)
+		parts := strings.Split(fileName, ".")
 		if len(parts) != 2 {
 			return fmt.Errorf("failed to split %q into name and extension", dirEntry.Name())
 		}
-		outputPath := filepath.Join(configJson.Output, parts[0]+".html")
+		relativeParentDir, err := filepath.Rel(configJson.Content, parentDir)
+		if err != nil {
+			return fmt.Errorf("failed to get path of parent dir %s relative to %s: %w", parentDir, configJson.Content, err)
+		}
+		outputPath = filepath.Join(configJson.Output, relativeParentDir, parts[0]+".html")
 
 		contentFile, err := ParseContentFile(contentPath)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", contentPath, err)
 		}
 
-		// convert markdown in content file to html
 		content := &bytes.Buffer{}
 		if err := goldmark.Convert([]byte(contentFile.Content), content); err != nil {
 			return fmt.Errorf("failed to convert %s to html: %w", contentPath, err)
 		}
 
-		// fill template
 		fd, err := os.Create(outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to open %s: %w", outputPath, err)
@@ -104,8 +102,34 @@ func buildContent() error {
 		if err := templates.ExecuteTemplate(fd, contentFile.Metadata.TemplateName, data); err != nil {
 			return fmt.Errorf("failed to execute %s for %s: %w", contentFile.Metadata.TemplateName, outputPath, err)
 		}
+
+		return nil
 	}
 
+	if err := filepath.WalkDir(configJson.Content, buildFunc); err != nil {
+		return fmt.Errorf("failed to build: %w", err)
+	}
+
+	return nil
+}
+
+func copyFile(dst, src string) error {
+	srcFd, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer srcFd.Close()
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("failed to create destination parent dir: %w", err)
+	}
+	dstFd, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to open destination file: %w", err)
+	}
+	defer dstFd.Close()
+	if _, err := io.Copy(dstFd, srcFd); err != nil {
+		return fmt.Errorf("failed to copy contents of src to dst: %w", err)
+	}
 	return nil
 }
 

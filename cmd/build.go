@@ -15,13 +15,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	contentPath   = "content"
-	outputPath    = "output"
-	templatesPath = "templates"
-	staticPath    = "static"
-)
-
 func init() {
 	rootCmd.AddCommand(buildCmd)
 }
@@ -37,7 +30,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 }
 
 func build() error {
-	if err := os.RemoveAll(outputPath); err != nil {
+	if err := os.RemoveAll(configJson.Output); err != nil {
 		return fmt.Errorf("failed to wipe output dir: %w", err)
 	}
 	if err := buildContent(); err != nil {
@@ -50,11 +43,11 @@ func build() error {
 }
 
 func copyStatic() error {
-	outputStaticPath := filepath.Join(outputPath, "static")
+	outputStaticPath := filepath.Join(configJson.Output, "static")
 	if err := os.RemoveAll(outputStaticPath); err != nil {
 		return fmt.Errorf("failed to remove existing static output directory: %w", err)
 	}
-	staticFs := os.DirFS(staticPath)
+	staticFs := os.DirFS(configJson.Static)
 	if err := os.CopyFS(outputStaticPath, staticFs); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to copy filesystem: %w", err)
 	}
@@ -62,18 +55,18 @@ func copyStatic() error {
 }
 
 func buildContent() error {
-	templatesGlob := filepath.Join(templatesPath, "*.gotmpl")
+	templatesGlob := filepath.Join(configJson.Templates, "*.gotmpl")
 	templates, err := template.ParseGlob(templatesGlob)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
 	}
 
-	dirEntries, err := os.ReadDir(contentPath)
+	dirEntries, err := os.ReadDir(configJson.Content)
 	if err != nil {
-		return fmt.Errorf("failed to read %s: %w", contentPath, err)
+		return fmt.Errorf("failed to read %s: %w", configJson.Content, err)
 	}
 
-	if err := os.MkdirAll(outputPath, 0o755); err != nil {
+	if err := os.MkdirAll(configJson.Output, 0o755); err != nil {
 		return fmt.Errorf("failed to ensure output path exists: %w", err)
 	}
 
@@ -81,12 +74,12 @@ func buildContent() error {
 		if dirEntry.IsDir() {
 			continue
 		}
-		contentPath := filepath.Join(contentPath, dirEntry.Name())
+		contentPath := filepath.Join(configJson.Content, dirEntry.Name())
 		parts := strings.Split(dirEntry.Name(), ".")
 		if len(parts) != 2 {
 			return fmt.Errorf("failed to split %q into name and extension", dirEntry.Name())
 		}
-		outputPath := filepath.Join(outputPath, parts[0]+".html")
+		outputPath := filepath.Join(configJson.Output, parts[0]+".html")
 
 		contentFile, err := ParseContentFile(contentPath)
 		if err != nil {

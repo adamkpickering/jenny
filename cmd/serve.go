@@ -48,7 +48,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	defer watcher.Close()
 
-	for _, dirPath := range []string{templatesPath, contentPath, staticPath} {
+	for _, dirPath := range []string{configJson.Output, configJson.Content, configJson.Static} {
 		if err := watcher.Add(dirPath); err != nil {
 			return fmt.Errorf("failed to watch %s: %w", dirPath, err)
 		}
@@ -87,7 +87,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	server := http.Server{
 		Addr:    args[0],
-		Handler: http.FileServer(http.Dir(outputPath)),
+		Handler: http.FileServer(http.Dir(configJson.Output)),
 	}
 
 	go func() {

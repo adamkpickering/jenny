@@ -48,8 +48,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(configJson.Content); err != nil {
-		return fmt.Errorf("failed to watch %s: %w", configJson.Content, err)
+	if err := watcher.Add(configYaml.Content); err != nil {
+		return fmt.Errorf("failed to watch %s: %w", configYaml.Content, err)
 	}
 
 	go func() {
@@ -85,7 +85,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	server := http.Server{
 		Addr:    args[0],
-		Handler: http.FileServer(http.Dir(configJson.Output)),
+		Handler: http.FileServer(http.Dir(configYaml.Output)),
 	}
 
 	go func() {

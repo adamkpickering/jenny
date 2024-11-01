@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const configPath = "configuration.json"
+const configPath = "configuration.yaml"
 
-var configJson config.ConfigJson
+var configYaml config.ConfigYaml
 
 var rootCmd = &cobra.Command{
 	Use:   "jenny",
@@ -23,7 +23,7 @@ func Execute() {
 		fmt.Printf("error: %s\n", err)
 		os.Exit(1)
 	}
-	configJson = newConfig
+	configYaml = newConfig
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("error: %s\n", err)

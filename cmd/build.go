@@ -30,17 +30,17 @@ func runBuild(cmd *cobra.Command, args []string) error {
 }
 
 func build() error {
-	templatesGlob := filepath.Join(configJson.Templates, "*.gotmpl")
+	templatesGlob := filepath.Join(configYaml.Templates, "*.gotmpl")
 	templates, err := template.ParseGlob(templatesGlob)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
 	}
 
 	// wipe output directory
-	if err := os.RemoveAll(configJson.Output); err != nil {
+	if err := os.RemoveAll(configYaml.Output); err != nil {
 		return fmt.Errorf("failed to wipe output dir: %w", err)
 	}
-	if err := os.MkdirAll(configJson.Output, 0o755); err != nil {
+	if err := os.MkdirAll(configYaml.Output, 0o755); err != nil {
 		return fmt.Errorf("failed to ensure output dir exists: %w", err)
 	}
 
@@ -48,11 +48,11 @@ func build() error {
 		if err != nil {
 			return err
 		}
-		relativePath, err := filepath.Rel(configJson.Content, contentPath)
+		relativePath, err := filepath.Rel(configYaml.Content, contentPath)
 		if err != nil {
 			return fmt.Errorf("failed to get relative path of %s: %w", contentPath, err)
 		}
-		outputPath := filepath.Join(configJson.Output, relativePath)
+		outputPath := filepath.Join(configYaml.Output, relativePath)
 		if dirEntry.IsDir() {
 			if err := os.MkdirAll(outputPath, 0o755); err != nil {
 				return fmt.Errorf("failed to create %s: %w", outputPath, err)
@@ -73,11 +73,11 @@ func build() error {
 		if len(parts) != 2 {
 			return fmt.Errorf("failed to split %q into name and extension", dirEntry.Name())
 		}
-		relativeParentDir, err := filepath.Rel(configJson.Content, parentDir)
+		relativeParentDir, err := filepath.Rel(configYaml.Content, parentDir)
 		if err != nil {
-			return fmt.Errorf("failed to get path of parent dir %s relative to %s: %w", parentDir, configJson.Content, err)
+			return fmt.Errorf("failed to get path of parent dir %s relative to %s: %w", parentDir, configYaml.Content, err)
 		}
-		outputPath = filepath.Join(configJson.Output, relativeParentDir, parts[0]+".html")
+		outputPath = filepath.Join(configYaml.Output, relativeParentDir, parts[0]+".html")
 
 		contentFile, err := content.ReadFile(contentPath)
 		if err != nil {
@@ -104,7 +104,7 @@ func build() error {
 		return nil
 	}
 
-	if err := filepath.WalkDir(configJson.Content, buildFunc); err != nil {
+	if err := filepath.WalkDir(configYaml.Content, buildFunc); err != nil {
 		return fmt.Errorf("failed to build: %w", err)
 	}
 

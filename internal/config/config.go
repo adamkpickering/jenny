@@ -1,46 +1,47 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
-type ConfigJson struct {
+type ConfigYaml struct {
 	Content   string `json:"content"`
 	Output    string `json:"output"`
 	Templates string `json:"templates"`
 }
 
-func ReadFile(configJsonPath string) (ConfigJson, error) {
-	configJson := ConfigJson{}
+func ReadFile(configYamlPath string) (ConfigYaml, error) {
+	configYaml := ConfigYaml{}
 
-	fd, err := os.Open(configJsonPath)
+	fd, err := os.Open(configYamlPath)
 	if !errors.Is(err, os.ErrNotExist) {
 		if err != nil {
-			return ConfigJson{}, fmt.Errorf("failed to open: %s", err)
+			return ConfigYaml{}, fmt.Errorf("failed to open: %s", err)
 		}
 		defer fd.Close()
-		decoder := json.NewDecoder(fd)
-		if err := decoder.Decode(&configJson); err != nil {
-			return ConfigJson{}, fmt.Errorf("failed to parse: %s", err)
+		decoder := yaml.NewDecoder(fd)
+		if err := decoder.Decode(&configYaml); err != nil {
+			return ConfigYaml{}, fmt.Errorf("failed to parse: %s", err)
 		}
 	}
 
-	configJson.setDefaults()
+	configYaml.setDefaults()
 
-	return configJson, nil
+	return configYaml, nil
 }
 
-func (configJson *ConfigJson) setDefaults() {
-	if configJson.Content == "" {
-		configJson.Content = "content"
+func (configYaml *ConfigYaml) setDefaults() {
+	if configYaml.Content == "" {
+		configYaml.Content = "content"
 	}
-	if configJson.Output == "" {
-		configJson.Output = "output"
+	if configYaml.Output == "" {
+		configYaml.Output = "output"
 	}
-	if configJson.Templates == "" {
-		configJson.Templates = "templates"
+	if configYaml.Templates == "" {
+		configYaml.Templates = "templates"
 	}
 }

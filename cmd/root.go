@@ -18,7 +18,7 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	newConfig, err := config.Read(configPath)
+	newConfig, err := config.ReadFile(configPath)
 	if err != nil {
 		fmt.Printf("error: %s\n", err)
 		os.Exit(1)

@@ -13,7 +13,7 @@ type ConfigJson struct {
 	Templates string `json:"templates"`
 }
 
-func Read(configJsonPath string) (ConfigJson, error) {
+func ReadFile(configJsonPath string) (ConfigJson, error) {
 	configJson := ConfigJson{}
 
 	fd, err := os.Open(configJsonPath)

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,10 +10,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/adamkpickering/jenny/internal/content"
 	"github.com/spf13/cobra"
 	"github.com/yuin/goldmark"
-
-	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -81,7 +79,7 @@ func build() error {
 		}
 		outputPath = filepath.Join(configJson.Output, relativeParentDir, parts[0]+".html")
 
-		contentFile, err := ParseContentFile(contentPath)
+		contentFile, err := content.ParseContentFile(contentPath)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", contentPath, err)
 		}
@@ -131,40 +129,4 @@ func copyFile(dst, src string) error {
 		return fmt.Errorf("failed to copy contents of src to dst: %w", err)
 	}
 	return nil
-}
-
-type ContentFile struct {
-	Metadata ContentMetadata
-	Content  string
-}
-
-type ContentMetadata struct {
-	Title        string `yaml:"title"`
-	TemplateName string `yaml:"templateName"`
-}
-
-func ParseContentFile(filePath string) (ContentFile, error) {
-	rawContentFile, err := os.ReadFile(filePath)
-	if err != nil {
-		return ContentFile{}, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	parts := strings.Split(string(rawContentFile), "---")
-	if len(parts) != 3 {
-		return ContentFile{}, errors.New(`file not split with \"---\" correctly`)
-	}
-	rawMetadata := strings.TrimSpace(parts[1])
-	content := strings.TrimSpace(parts[2])
-
-	contentMetadata := ContentMetadata{}
-	if err := yaml.Unmarshal([]byte(rawMetadata), &contentMetadata); err != nil {
-		return ContentFile{}, fmt.Errorf("failed to parse metadata as yaml: %w", err)
-	}
-
-	contentFile := ContentFile{
-		Metadata: contentMetadata,
-		Content:  content,
-	}
-
-	return contentFile, nil
 }

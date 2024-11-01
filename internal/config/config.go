@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -13,16 +14,18 @@ type ConfigJson struct {
 }
 
 func Read(configJsonPath string) (ConfigJson, error) {
-	fd, err := os.Open(configJsonPath)
-	if err != nil {
-		return ConfigJson{}, fmt.Errorf("failed to open: %s", err)
-	}
-	defer fd.Close()
-
 	configJson := ConfigJson{}
-	decoder := json.NewDecoder(fd)
-	if err := decoder.Decode(&configJson); err != nil {
-		return ConfigJson{}, fmt.Errorf("failed to parse: %s", err)
+
+	fd, err := os.Open(configJsonPath)
+	if !errors.Is(err, os.ErrNotExist) {
+		if err != nil {
+			return ConfigJson{}, fmt.Errorf("failed to open: %s", err)
+		}
+		defer fd.Close()
+		decoder := json.NewDecoder(fd)
+		if err := decoder.Decode(&configJson); err != nil {
+			return ConfigJson{}, fmt.Errorf("failed to parse: %s", err)
+		}
 	}
 
 	configJson.setDefaults()

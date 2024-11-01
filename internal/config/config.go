@@ -25,5 +25,19 @@ func Read(configJsonPath string) (ConfigJson, error) {
 		return ConfigJson{}, fmt.Errorf("failed to parse: %s", err)
 	}
 
+	configJson.setDefaults()
+
 	return configJson, nil
+}
+
+func (configJson *ConfigJson) setDefaults() {
+	if configJson.Content == "" {
+		configJson.Content = "content"
+	}
+	if configJson.Output == "" {
+		configJson.Output = "output"
+	}
+	if configJson.Templates == "" {
+		configJson.Templates = "templates"
+	}
 }

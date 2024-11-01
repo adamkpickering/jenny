@@ -64,7 +64,7 @@ func build() error {
 			Config: configYaml,
 		},
 	}
-	buildFunc := func(contentPath string, dirEntry fs.DirEntry, err error) error {
+	gatherFilesFunc := func(contentPath string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ func build() error {
 		return nil
 	}
 
-	if err := filepath.WalkDir(configYaml.Content, buildFunc); err != nil {
+	if err := filepath.WalkDir(configYaml.Content, gatherFilesFunc); err != nil {
 		return fmt.Errorf("failed to build: %w", err)
 	}
 

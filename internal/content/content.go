@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,8 +24,10 @@ type Content struct {
 }
 
 type ContentMetadata struct {
-	Title        string `yaml:"Title"`
-	TemplateName string `yaml:"TemplateName"`
+	LastModified time.Time `yaml:"LastModified"`
+	Published    time.Time `yaml:"Published"`
+	TemplateName string    `yaml:"TemplateName"`
+	Title        string    `yaml:"Title"`
 }
 
 func ReadFile(filePath string) (Content, error) {

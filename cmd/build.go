@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/adamkpickering/jenny/internal/config"
 	"github.com/adamkpickering/jenny/internal/content"
 	"github.com/spf13/cobra"
 	"github.com/yuin/goldmark"
@@ -129,4 +131,20 @@ func copyFile(dst, src string) error {
 		return fmt.Errorf("failed to copy contents of src to dst: %w", err)
 	}
 	return nil
+}
+
+// TemplateData is the data that gets passed when building a template.
+type TemplateData struct {
+	// The specific page that is being rendered in this template execution.
+	Page content.Content
+	// A slice of all content pages in this website.
+	Pages []content.Content
+	// Any extra data that doesn't have anything to do with pages that we want
+	// to make available in templates.
+	Context TemplateContext
+}
+
+type TemplateContext struct {
+	Now    time.Time
+	Config config.ConfigYaml
 }

@@ -12,8 +12,12 @@ import (
 // Represents a markdown file with a YAML header containing metadata about that
 // file.
 type Content struct {
+	// The content of the file from below the yaml header.
+	Content string
+	// The contents of the yaml header.
 	Metadata ContentMetadata
-	Content  string
+	// The path to the built content file relative to the output directory.
+	Path string
 }
 
 type ContentMetadata struct {

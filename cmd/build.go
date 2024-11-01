@@ -79,7 +79,7 @@ func build() error {
 		}
 		outputPath = filepath.Join(configJson.Output, relativeParentDir, parts[0]+".html")
 
-		contentFile, err := content.ParseContentFile(contentPath)
+		contentFile, err := content.ReadFile(contentPath)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", contentPath, err)
 		}

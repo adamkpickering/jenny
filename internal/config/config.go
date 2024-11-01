@@ -7,9 +7,9 @@ import (
 )
 
 type ConfigJson struct {
-	Content   string
-	Output    string
-	Templates string
+	Content   string `json:"content"`
+	Output    string `json:"output"`
+	Templates string `json:"templates"`
 }
 
 func Read(configJsonPath string) (ConfigJson, error) {

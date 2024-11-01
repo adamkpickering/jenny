@@ -17,8 +17,8 @@ type Content struct {
 }
 
 type ContentMetadata struct {
-	Title        string `yaml:"title"`
-	TemplateName string `yaml:"templateName"`
+	Title        string
+	TemplateName string
 }
 
 func ReadFile(filePath string) (Content, error) {

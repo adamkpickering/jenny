@@ -14,13 +14,15 @@ import (
 // file.
 type Content struct {
 	// The built (i.e. HTML) content.
-	Content string
+	Content string `yaml:"Content"`
 	// The contents of the yaml header.
-	Metadata ContentMetadata
+	Metadata ContentMetadata `yaml:"Metadata"`
 	// The path to the built content file relative to the output directory.
-	Path string
+	Path string `yaml:"Path"`
 	// The markdown content of the file from below the yaml header.
-	RawContent string
+	RawContent string `yaml:"RawContent"`
+	// The path to the file the Content struct was built from.
+	SourcePath string `yaml:"SourcePath"`
 }
 
 type ContentMetadata struct {
@@ -30,31 +32,32 @@ type ContentMetadata struct {
 	Title        string    `yaml:"Title"`
 }
 
-func ReadFile(filePath string) (Content, error) {
+func ReadFile(filePath string) (*Content, error) {
 	rawContentFile, err := os.ReadFile(filePath)
 	if err != nil {
-		return Content{}, fmt.Errorf("failed to read file: %w", err)
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	parts := strings.Split(string(rawContentFile), "---")
 	if len(parts) != 3 {
-		return Content{}, errors.New(`file not split with \"---\" correctly`)
+		return nil, errors.New(`file not split with \"---\" correctly`)
 	}
 	rawMetadata := strings.TrimSpace(parts[1])
 	content := strings.TrimSpace(parts[2])
 
 	contentMetadata := ContentMetadata{}
 	if err := yaml.Unmarshal([]byte(rawMetadata), &contentMetadata); err != nil {
-		return Content{}, fmt.Errorf("failed to parse metadata as yaml: %w", err)
+		return nil, fmt.Errorf("failed to parse metadata as yaml: %w", err)
 	}
 
-	contentFile := Content{
+	contentFile := &Content{
 		Metadata:   contentMetadata,
 		RawContent: content,
+		SourcePath: filePath,
 	}
 
 	if err := contentFile.Validate(); err != nil {
-		return Content{}, fmt.Errorf("invalid content file: %w", err)
+		return nil, fmt.Errorf("invalid content file: %w", err)
 	}
 
 	return contentFile, nil

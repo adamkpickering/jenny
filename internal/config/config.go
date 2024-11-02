@@ -9,9 +9,9 @@ import (
 )
 
 type ConfigYaml struct {
-	Content   string
-	Output    string
-	Templates string
+	Content   string `yaml:"Content"`
+	Output    string `yaml:"Output"`
+	Templates string `yaml:"Templates"`
 }
 
 func ReadFile(configYamlPath string) (ConfigYaml, error) {

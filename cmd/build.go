@@ -20,17 +20,17 @@ import (
 // TemplateData is the data that gets passed when building a template.
 type TemplateData struct {
 	// The specific page that is being rendered in this template execution.
-	Page content.Content
+	Page *content.Content `yaml:"Page"`
 	// A slice of all content pages in this website.
-	Pages []content.Content
+	Pages []*content.Content `yaml:"Pages"`
 	// Any extra data that doesn't have anything to do with pages that we want
 	// to make available in templates.
-	Context TemplateContext
+	Context TemplateContext `yaml:"Context"`
 }
 
 type TemplateContext struct {
-	Now    time.Time
-	Config config.ConfigYaml
+	Now    time.Time         `yaml:"Now"`
+	Config config.ConfigYaml `yaml:"Config"`
 }
 
 func init() {
@@ -54,11 +54,64 @@ func build() error {
 		return fmt.Errorf("failed to parse templates: %w", err)
 	}
 
+	nonMdFiles, templateData, err := gatherFileInfo(configYaml)
+	if err != nil {
+		return fmt.Errorf("failed to gather info on input files: %w", err)
+	}
+
+	// wipe output directory
+	if err := os.RemoveAll(configYaml.Output); err != nil {
+		return fmt.Errorf("failed to wipe output dir: %w", err)
+	}
+	if err := os.MkdirAll(configYaml.Output, 0o755); err != nil {
+		return fmt.Errorf("failed to ensure output dir exists: %w", err)
+	}
+
+	// copy over non-markdown files
+	for _, nonMdFile := range nonMdFiles {
+		contentPath := filepath.Join(configYaml.Content, nonMdFile)
+		outputPath := filepath.Join(configYaml.Output, nonMdFile)
+		parentDir := filepath.Dir(outputPath)
+		if err := os.MkdirAll(parentDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
+		}
+		if err := copyFile(outputPath, contentPath); err != nil {
+			return fmt.Errorf("failed to copy %s to %s: %w", contentPath, outputPath, err)
+		}
+	}
+
+	// build markdown files
+	for _, contentFile := range templateData.Pages {
+		outputPath := filepath.Join(configYaml.Output, contentFile.Path)
+		parentDir := filepath.Dir(outputPath)
+		if err := os.MkdirAll(parentDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
+		}
+
+		builtContent := &bytes.Buffer{}
+		if err := goldmark.Convert([]byte(contentFile.RawContent), builtContent); err != nil {
+			return fmt.Errorf("failed to build %s: %w", contentFile.Path, err)
+		}
+		contentFile.Content = builtContent.String()
+		templateData.Page = contentFile
+
+		fd, err := os.Create(outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to open %s: %w", outputPath, err)
+		}
+		defer fd.Close()
+		if err := templates.ExecuteTemplate(fd, contentFile.Metadata.TemplateName, &templateData); err != nil {
+			return fmt.Errorf("failed to execute %s for %s: %w", contentFile.Metadata.TemplateName, outputPath, err)
+		}
+	}
+
+	return nil
+}
+
+func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error) {
 	nonMdFiles := make([]string, 0)
-	// maps source file (relative to repository root) to Content struct
-	mdFiles := make(map[string]content.Content)
 	templateData := TemplateData{
-		Pages: make([]content.Content, 0),
+		Pages: make([]*content.Content, 0),
 		Context: TemplateContext{
 			Now:    time.Now(),
 			Config: configYaml,
@@ -98,63 +151,16 @@ func build() error {
 			return fmt.Errorf("failed to parse %s: %w", contentPath, err)
 		}
 		contentFile.Path = filepath.Join(relativeParentDir, parts[0]+".html")
-		mdFiles[contentPath] = contentFile
 		templateData.Pages = append(templateData.Pages, contentFile)
 
 		return nil
 	}
 
 	if err := filepath.WalkDir(configYaml.Content, gatherFilesFunc); err != nil {
-		return fmt.Errorf("failed to build: %w", err)
+		return nil, TemplateData{}, fmt.Errorf("failed to build: %w", err)
 	}
 
-	// wipe output directory
-	if err := os.RemoveAll(configYaml.Output); err != nil {
-		return fmt.Errorf("failed to wipe output dir: %w", err)
-	}
-	if err := os.MkdirAll(configYaml.Output, 0o755); err != nil {
-		return fmt.Errorf("failed to ensure output dir exists: %w", err)
-	}
-
-	// copy over non-markdown files
-	for _, nonMdFile := range nonMdFiles {
-		contentPath := filepath.Join(configYaml.Content, nonMdFile)
-		outputPath := filepath.Join(configYaml.Output, nonMdFile)
-		parentDir := filepath.Dir(outputPath)
-		if err := os.MkdirAll(parentDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
-		}
-		if err := copyFile(outputPath, contentPath); err != nil {
-			return fmt.Errorf("failed to copy %s to %s: %w", contentPath, outputPath, err)
-		}
-	}
-
-	// build markdown files
-	for contentPath, contentFile := range mdFiles {
-		outputPath := filepath.Join(configYaml.Output, contentFile.Path)
-		parentDir := filepath.Dir(outputPath)
-		if err := os.MkdirAll(parentDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
-		}
-
-		builtContent := &bytes.Buffer{}
-		if err := goldmark.Convert([]byte(contentFile.RawContent), builtContent); err != nil {
-			return fmt.Errorf("failed to convert %s to html: %w", contentPath, err)
-		}
-		contentFile.Content = builtContent.String()
-		templateData.Page = contentFile
-
-		fd, err := os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("failed to open %s: %w", outputPath, err)
-		}
-		defer fd.Close()
-		if err := templates.ExecuteTemplate(fd, contentFile.Metadata.TemplateName, &templateData); err != nil {
-			return fmt.Errorf("failed to execute %s for %s: %w", contentFile.Metadata.TemplateName, outputPath, err)
-		}
-	}
-
-	return nil
+	return nonMdFiles, templateData, nil
 }
 
 func copyFile(dst, src string) error {

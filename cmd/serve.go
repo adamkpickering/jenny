@@ -4,15 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
+
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
+
+const reloadScript = `<script>console.log("placeholder")</script>`
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
@@ -64,6 +71,10 @@ forloop:
 			log.Printf("failed to build: %s", err)
 			break forloop
 		}
+		if err := modifyHtmlFiles(); err != nil {
+			log.Printf("failed to modify HTML files: %s", err)
+			break forloop
+		}
 
 		if watcher != nil {
 			watcher.Close()
@@ -105,4 +116,72 @@ forloop:
 		watcher.Close()
 	}
 	stop()
+}
+
+func modifyHtmlFiles() error {
+	walkDirFunc := func(outputPath string, dirEntry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if dirEntry.IsDir() {
+			return nil
+		}
+		if filepath.Ext(outputPath) != ".html" {
+			return nil
+		}
+
+		if err := injectReloadScript(outputPath); err != nil {
+			return fmt.Errorf("failed to inject reload script into %s: %w", outputPath, err)
+		}
+
+		return nil
+	}
+
+	if err := filepath.WalkDir(configYaml.Output, walkDirFunc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// injectScript injects the reloading script into a given .html file.
+func injectReloadScript(filePath string) error {
+	fd, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", filePath, err)
+	}
+	defer fd.Close()
+
+	document, err := html.Parse(fd)
+	if err != nil {
+		return fmt.Errorf("failed to parse: %w", err)
+	}
+	found := false
+	for node := range document.Descendants() {
+		if node.Type == html.ElementNode && node.DataAtom == atom.Head {
+			scriptNode := &html.Node{
+				Type: html.RawNode,
+				Data: reloadScript,
+			}
+			node.AppendChild(scriptNode)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.New("failed to find head element")
+	}
+
+	if err := fd.Truncate(0); err != nil {
+		return fmt.Errorf("failed to truncate: %w", err)
+	}
+	if _, err := fd.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to seek: %w", err)
+	}
+
+	if err := html.Render(fd, document); err != nil {
+		return fmt.Errorf("failed to render modified document: %w", err)
+	}
+
+	return nil
 }

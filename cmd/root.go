@@ -15,6 +15,9 @@ var configYaml config.ConfigYaml
 var rootCmd = &cobra.Command{
 	Use:   "jenny",
 	Short: "jenny is a simple static site generator",
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
 }
 
 func Execute() {

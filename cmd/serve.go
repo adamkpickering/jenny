@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
@@ -25,63 +25,10 @@ var serveCmd = &cobra.Command{
 	RunE:  runServe,
 }
 
-var buildMutex = sync.Mutex{}
-
-func exclusiveBuild(op string, filePath string) error {
-	if !buildMutex.TryLock() {
-		return nil
-	}
-	defer buildMutex.Unlock()
-	log.Printf("build triggered by %s on %s", op, filePath)
-	if err := build(); err != nil {
-		return fmt.Errorf("failed to build: %w", err)
-	}
-	return nil
-}
-
 func runServe(cmd *cobra.Command, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to construct watcher: %w", err)
-	}
-	defer watcher.Close()
-
-	if err := watcher.Add(configYaml.Content); err != nil {
-		return fmt.Errorf("failed to watch %s: %w", configYaml.Content, err)
-	}
-
-	go func() {
-		op := "INITIAL_BUILD"
-		filePath := "N/A"
-	forloop:
-		for {
-			if err := exclusiveBuild(op, filePath); err != nil {
-				log.Println(err)
-			}
-
-			select {
-			case _, ok := <-ctx.Done():
-				if !ok {
-					break forloop
-				}
-			case event, ok := <-watcher.Events:
-				if !ok {
-					break forloop
-				}
-				op = event.Op.String()
-				filePath = event.Name
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					break forloop
-				}
-				log.Printf("error from watcher: %s", err)
-				break forloop
-			}
-		}
-		stop()
-	}()
+	go watchAndBuild(ctx, stop)
 
 	server := http.Server{
 		Addr:    args[0],
@@ -91,7 +38,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	go func() {
 		log.Printf("listening on %s", args[0])
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("http server failed: %s", err)
+			log.Printf("http server error: %s", err)
 			stop()
 		}
 	}()
@@ -103,4 +50,59 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func watchAndBuild(ctx context.Context, stop func()) {
+	var watcher *fsnotify.Watcher
+	var err error
+	filePath := "INITIAL_BUILD"
+
+forloop:
+	for {
+		log.Printf("build triggered by %s", filePath)
+		if err := build(); err != nil {
+			log.Printf("failed to build: %s", err)
+			break forloop
+		}
+
+		if watcher != nil {
+			watcher.Close()
+		}
+		watcher, err = fsnotify.NewWatcher()
+		if err != nil {
+			log.Printf("failed to construct watcher: %s", err)
+			break forloop
+		}
+		defer watcher.Close()
+		if err := watcher.Add(configYaml.Content); err != nil {
+			log.Printf("failed to watch %s: %s", configYaml.Content, err)
+			break forloop
+		}
+
+		select {
+		case _, ok := <-ctx.Done():
+			if !ok {
+				break forloop
+			}
+		case event, ok := <-watcher.Events:
+			if !ok {
+				break forloop
+			}
+			filePath = event.Name
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				break forloop
+			}
+			log.Printf("error from watcher: %s", err)
+			break forloop
+		}
+
+		// avoid unnecessary rebuilds
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if watcher != nil {
+		watcher.Close()
+	}
+	stop()
 }

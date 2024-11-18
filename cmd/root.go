@@ -13,8 +13,7 @@ const configPath = "configuration.yaml"
 var configYaml config.ConfigYaml
 
 var rootCmd = &cobra.Command{
-	Use:   "jenny",
-	Short: "jenny is a simple static site generator",
+	Use: "jenny",
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},

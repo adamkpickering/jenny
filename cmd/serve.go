@@ -7,11 +7,13 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
@@ -19,31 +21,52 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-const reloadScript = `<script>console.log("placeholder")</script>`
+const reloadScriptTemplate = `<script>
+  let ws = new WebSocket("http://%s%s");
+  ws.onmessage = (event) => {
+    if (event.data === "%s") {
+      window.location.reload();
+    }
+  }
+</script>`
+const reloadMsg = "reload"
+const websocketPath = "/websocket"
+
+var host string
 
 func init() {
+	serveCmd.PersistentFlags().StringVar(&host, "host", "localhost:9023", "host and port to listen on in host:port format")
 	rootCmd.AddCommand(serveCmd)
 }
 
 var serveCmd = &cobra.Command{
-	Use:   "serve <addr>",
+	Use:   "serve",
 	Short: "Serve static site",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.NoArgs,
 	RunE:  runServe,
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
+	websocketUrl, err := url.Parse("http://" + host + websocketPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse websocket URL: %w", err)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 
-	go watchAndBuild(ctx, stop)
+	reloadNotificationChan := make(chan struct{})
+	defer close(reloadNotificationChan)
 
+	go watchAndBuild(ctx, stop, reloadNotificationChan, websocketUrl)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", addLogging(http.FileServerFS(os.DirFS(configYaml.Output))))
+	mux.HandleFunc(websocketPath, handleWebsocket(reloadNotificationChan))
 	server := http.Server{
-		Addr:    args[0],
-		Handler: http.FileServer(http.Dir(configYaml.Output)),
+		Addr:    host,
+		Handler: mux,
 	}
-
 	go func() {
-		log.Printf("listening on %s", args[0])
+		log.Printf("listening on http://%s", host)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("http server error: %s", err)
 			stop()
@@ -59,23 +82,58 @@ func runServe(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func watchAndBuild(ctx context.Context, stop func()) {
+func addLogging(handler http.Handler) http.HandlerFunc {
+	return func(rw http.ResponseWriter, req *http.Request) {
+		log.Printf("%s %s", req.Method, req.URL.Path)
+		handler.ServeHTTP(rw, req)
+	}
+}
+
+func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.ResponseWriter, req *http.Request) {
+	return func(rw http.ResponseWriter, req *http.Request) {
+		conn, err := websocket.Accept(rw, req, nil)
+		if err != nil {
+			log.Printf("failed to accept: %s", err)
+			return
+		}
+		defer conn.CloseNow()
+		readCtx := conn.CloseRead(context.Background())
+
+		for {
+			select {
+			case <-readCtx.Done():
+				if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+					log.Printf("failed to close: %s", err)
+				}
+				return
+			case <-reloadNotifcationChan:
+				if err := conn.Write(context.Background(), websocket.MessageText, []byte("reload")); err != nil {
+					log.Printf("failed to write: %s", err)
+					return
+				}
+			}
+		}
+	}
+}
+
+func watchAndBuild(ctx context.Context, stop func(), reloadNotificationChan chan<- struct{}, websocketUrl *url.URL) {
 	var watcher *fsnotify.Watcher
 	var err error
-	filePath := "INITIAL_BUILD"
+	filePath := ""
+
+	// initial build
+	if err := build(); err != nil {
+		log.Printf("failed to build: %s", err)
+		return
+	}
+	if err := modifyHtmlFiles(websocketUrl); err != nil {
+		log.Printf("failed to modify HTML files: %s", err)
+		return
+	}
 
 forloop:
 	for {
-		log.Printf("build triggered by %s", filePath)
-		if err := build(); err != nil {
-			log.Printf("failed to build: %s", err)
-			break forloop
-		}
-		if err := modifyHtmlFiles(); err != nil {
-			log.Printf("failed to modify HTML files: %s", err)
-			break forloop
-		}
-
+		// construct new directory watcher
 		if watcher != nil {
 			watcher.Close()
 		}
@@ -84,12 +142,24 @@ forloop:
 			log.Printf("failed to construct watcher: %s", err)
 			break forloop
 		}
-		defer watcher.Close()
-		if err := watcher.Add(configYaml.Content); err != nil {
-			log.Printf("failed to watch %s: %s", configYaml.Content, err)
+		err = filepath.WalkDir(configYaml.Content, func(walkPath string, dirEntry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !dirEntry.IsDir() {
+				return nil
+			}
+			if err := watcher.Add(walkPath); err != nil {
+				return fmt.Errorf("failed to watch %s: %s", walkPath, err)
+			}
+			return nil
+		})
+		if err != nil {
+			log.Println(err)
 			break forloop
 		}
 
+		// wait for something to happen
 		select {
 		case _, ok := <-ctx.Done():
 			if !ok {
@@ -108,17 +178,30 @@ forloop:
 			break forloop
 		}
 
+		// rebuild
+		log.Printf("build triggered by change to %s", filePath)
+		if err := build(); err != nil {
+			log.Printf("failed to build: %s", err)
+			break forloop
+		}
+		if err := modifyHtmlFiles(websocketUrl); err != nil {
+			log.Printf("failed to modify HTML files: %s", err)
+			break forloop
+		}
+		reloadNotificationChan <- struct{}{}
+
 		// avoid unnecessary rebuilds
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	// clean up
 	if watcher != nil {
 		watcher.Close()
 	}
 	stop()
 }
 
-func modifyHtmlFiles() error {
+func modifyHtmlFiles(websocketUrl *url.URL) error {
 	walkDirFunc := func(outputPath string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -130,7 +213,7 @@ func modifyHtmlFiles() error {
 			return nil
 		}
 
-		if err := injectReloadScript(outputPath); err != nil {
+		if err := injectReloadScript(outputPath, websocketUrl); err != nil {
 			return fmt.Errorf("failed to inject reload script into %s: %w", outputPath, err)
 		}
 
@@ -145,10 +228,11 @@ func modifyHtmlFiles() error {
 }
 
 // injectScript injects the reloading script into a given .html file.
-func injectReloadScript(filePath string) error {
+// host is the host and port of
+func injectReloadScript(filePath string, websocketUrl *url.URL) error {
 	fd, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
 	if err != nil {
-		return fmt.Errorf("failed to open %s: %w", filePath, err)
+		return fmt.Errorf("failed to open: %w", err)
 	}
 	defer fd.Close()
 
@@ -159,6 +243,7 @@ func injectReloadScript(filePath string) error {
 	found := false
 	for node := range document.Descendants() {
 		if node.Type == html.ElementNode && node.DataAtom == atom.Head {
+			reloadScript := fmt.Sprintf(reloadScriptTemplate, websocketUrl.Host, websocketUrl.Path, reloadMsg)
 			scriptNode := &html.Node{
 				Type: html.RawNode,
 				Data: reloadScript,

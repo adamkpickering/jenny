@@ -3,6 +3,7 @@ module github.com/adamkpickering/jenny
 go 1.23.2
 
 require (
+	github.com/coder/websocket v1.8.12
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/yuin/goldmark v1.7.8

@@ -20,9 +20,9 @@ import (
 // TemplateData is the data that gets passed when building a template.
 type TemplateData struct {
 	// The specific page that is being rendered in this template execution.
-	Page *content.Content `yaml:"Page"`
+	Page *content.ContentFile `yaml:"Page"`
 	// A slice of all content pages in this website.
-	Pages []*content.Content `yaml:"Pages"`
+	Pages []*content.ContentFile `yaml:"Pages"`
 	// Any extra data that doesn't have anything to do with pages that we want
 	// to make available in templates.
 	Context TemplateContext `yaml:"Context"`
@@ -111,7 +111,7 @@ func build() error {
 func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error) {
 	nonMdFiles := make([]string, 0)
 	templateData := TemplateData{
-		Pages: make([]*content.Content, 0),
+		Pages: make([]*content.ContentFile, 0),
 		Context: TemplateContext{
 			Now:    time.Now(),
 			Config: configYaml,

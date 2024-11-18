@@ -12,7 +12,7 @@ import (
 
 // Represents a markdown file with a YAML header containing metadata about that
 // file.
-type Content struct {
+type ContentFile struct {
 	// The built (i.e. HTML) content.
 	Content string `yaml:"Content"`
 	// The contents of the yaml header.
@@ -32,7 +32,7 @@ type ContentMetadata struct {
 	Title        string    `yaml:"Title"`
 }
 
-func ReadFile(filePath string) (*Content, error) {
+func ReadFile(filePath string) (*ContentFile, error) {
 	rawContentFile, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -50,7 +50,7 @@ func ReadFile(filePath string) (*Content, error) {
 		return nil, fmt.Errorf("failed to parse metadata as yaml: %w", err)
 	}
 
-	contentFile := &Content{
+	contentFile := &ContentFile{
 		Metadata:   contentMetadata,
 		RawContent: content,
 		SourcePath: filePath,
@@ -63,7 +63,7 @@ func ReadFile(filePath string) (*Content, error) {
 	return contentFile, nil
 }
 
-func (contentFile Content) Validate() error {
+func (contentFile ContentFile) Validate() error {
 	if contentFile.Metadata.TemplateName == "" {
 		return fmt.Errorf("must define TemplateName")
 	}

@@ -26,10 +26,10 @@ type ContentFile struct {
 }
 
 type ContentMetadata struct {
-	LastModified time.Time `yaml:"LastModified"`
-	Published    time.Time `yaml:"Published"`
-	TemplateName string    `yaml:"TemplateName"`
-	Title        string    `yaml:"Title"`
+	LastModified time.Time `yaml:"LastModified,omitempty"`
+	Published    time.Time `yaml:"Published,omitempty"`
+	TemplateName string    `yaml:"TemplateName,omitempty"`
+	Title        string    `yaml:"Title,omitempty"`
 }
 
 func ReadFile(filePath string) (*ContentFile, error) {

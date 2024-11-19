@@ -31,8 +31,8 @@ func runTemplateData(cmd *cobra.Command, args []string) error {
 	// so that the output is legible
 	foundContentFile := &content.ContentFile{}
 	for _, contentFile := range templateData.Pages {
-		contentFile.Content = "redacted"
-		contentFile.RawContent = "redacted"
+		contentFile.Content = "redacted for legibility"
+		contentFile.RawContent = "redacted for legibility"
 		if contentFile.SourcePath == args[0] {
 			foundContentFile = contentFile
 		}

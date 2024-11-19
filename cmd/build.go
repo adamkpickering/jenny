@@ -150,7 +150,7 @@ func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", contentPath, err)
 		}
-		contentFile.Path = filepath.Join(relativeParentDir, parts[0]+".html")
+		contentFile.Path = filepath.Join("/", relativeParentDir, parts[0]+".html")
 		templateData.Pages = append(templateData.Pages, contentFile)
 
 		return nil

@@ -142,6 +142,9 @@ forloop:
 			log.Printf("failed to construct watcher: %s", err)
 			break forloop
 		}
+		if err := watcher.Add(configYaml.Templates); err != nil {
+			log.Printf("failed to watch %s: %s", configYaml.Templates, err)
+		}
 		err = filepath.WalkDir(configYaml.Input, func(walkPath string, dirEntry fs.DirEntry, err error) error {
 			if err != nil {
 				return err

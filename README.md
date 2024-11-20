@@ -138,16 +138,16 @@ Pages:
       RawContent: redacted for legibility
       SourcePath: input/post2.md
 
-# Project-wide data
-Context:
-    # The datetime for when `jenny` was run.
-    Now: 2024-11-19T12:36:34.635218497-07:00
-    # The contents of configuration.yaml. For specifics please see the
-    # configuration.yaml reference.
-    Config:
-        Input: input
-        Output: output
-        Templates: templates
+# Any values that are computed at runtime.
+Computed:
+    Now: 2024-11-20T15:17:24.642695264-07:00
+
+# The contents of configuration.yaml. For specifics please see
+# the configuration.yaml reference.
+Config:
+    Input: input
+    Output: output
+    Templates: templates
 ```
 
 ## How does hot reloading work?

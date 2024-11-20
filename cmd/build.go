@@ -25,12 +25,12 @@ type TemplateData struct {
 	Pages []*content.ContentFile `yaml:"Pages"`
 	// Any extra data that doesn't have anything to do with pages that we want
 	// to make available in templates.
-	Context TemplateContext `yaml:"Context"`
+	Computed Computed          `yaml:"Computed"`
+	Config   config.ConfigYaml `yaml:"Config"`
 }
 
-type TemplateContext struct {
-	Now    time.Time         `yaml:"Now"`
-	Config config.ConfigYaml `yaml:"Config"`
+type Computed struct {
+	Now time.Time `yaml:"Now"`
 }
 
 func init() {
@@ -112,10 +112,10 @@ func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error
 	nonMdFiles := make([]string, 0)
 	templateData := TemplateData{
 		Pages: make([]*content.ContentFile, 0),
-		Context: TemplateContext{
-			Now:    time.Now(),
-			Config: configYaml,
+		Computed: Computed{
+			Now: time.Now(),
 		},
+		Config: configYaml,
 	}
 	gatherFilesFunc := func(inputPath string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {

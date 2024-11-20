@@ -1,0 +1,5 @@
+{{ template "header.gotmpl" -}}
+<h1>{{ .Page.Metadata.Title }}</h1>
+<p>Last modified {{ .Page.Metadata.LastModified.Format "2006-01-02" }}</p>
+{{ .Page.Content }}
+{{ template "footer.gotmpl" -}}

@@ -174,5 +174,5 @@ solution is to rely on the user to notice the failure and restart `jenny`.
 
 ## Credits
 
-Thanks to SUSE for holding [Hack Week] 24, which helped to get `jenny`
-to the point where it is usable!
+Thanks to SUSE for holding [Hack Week](https://hackweek.opensuse.org/) 24,
+which helped to get `jenny` to the point where it is usable!

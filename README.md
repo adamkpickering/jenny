@@ -16,7 +16,7 @@ linked binaries are provided for easy installation and uninstallation.
 ## How does it work?
 
 The core of `jenny` is `jenny build`. When you run `jenny build`, `jenny`
-recursively iterates over the files in `content/`. For each file, its
+recursively iterates over the files in `input/`. For each file, its
 action depends on the extension of the file:
 
 1. If the file has the `.md` extension, its [front matter](#front-matter)
@@ -32,7 +32,7 @@ action depends on the extension of the file:
 
 ### Project Structure
 
-`content/` contains `.md` files that get compiled to HTML to make the
+`input/` contains `.md` files that get compiled to HTML to make the
 pages of your website. May also contain non-markdown files that you want
 to include in your website (for example static files). May contain
 nested directories.
@@ -43,7 +43,7 @@ files in nested directories are not considered. Only files with the `.gotmpl`
 extension are considered.
 
 `output/` contains your built website. Its structure mirrors the structure
-of `content/`, but with `.md` files renamed to `.html` files.
+of `input/`, but with `.md` files renamed to `.html` files.
 
 > [!NOTE]
 > The paths listed for these directories are the defaults, but you may
@@ -80,7 +80,7 @@ that it supports:
 
 | Field | Description |
 | --- | --- |
-| `Content` | The path to the content directory |
+| `Input` | The path to the input directory |
 | `Output` | The path to the output directory |
 | `Templates` | The path to the templates directory |
 
@@ -89,7 +89,7 @@ that it supports:
 
 You can see what data is available to templates for a specific content file
 using the `jenny template-data` command. Using the [example site](example), the
-output of `jenny template-data content/post1.md` is shown below (with comments
+output of `jenny template-data input/post1.md` is shown below (with comments
 added):
 
 ```yaml
@@ -109,7 +109,7 @@ Page:
     # The unmodified markdown content.
     RawContent: redacted for legibility
     # The path to the content file.
-    SourcePath: content/post1.md
+    SourcePath: input/post1.md
 
 # Data for all the pages in the site. Elements are the same as the Page key.
 Pages:
@@ -118,7 +118,7 @@ Pages:
         TemplateName: index.gotmpl
       Path: /index.html
       RawContent: redacted for legibility
-      SourcePath: content/index.md
+      SourcePath: input/index.md
     - Content: redacted for legibility
       Metadata:
         LastModified: 2024-03-24T00:00:00Z
@@ -127,7 +127,7 @@ Pages:
         Title: Post One
       Path: /post1.html
       RawContent: redacted for legibility
-      SourcePath: content/post1.md
+      SourcePath: input/post1.md
     - Content: redacted for legibility
       Metadata:
         LastModified: 2024-04-25T00:00:00Z
@@ -136,7 +136,7 @@ Pages:
         Title: Post Two
       Path: /post2.html
       RawContent: redacted for legibility
-      SourcePath: content/post2.md
+      SourcePath: input/post2.md
 
 # Project-wide data
 Context:
@@ -145,7 +145,7 @@ Context:
     # The contents of configuration.yaml. For specifics please see the
     # configuration.yaml reference.
     Config:
-        Content: content
+        Input: input
         Output: output
         Templates: templates
 ```
@@ -154,7 +154,7 @@ Context:
 
 In order to make development of your site as easy as possible, `jenny`
 has a `serve` subcommand that rebuilds your site every time a file in
-`content/` or `templates/` is changed. Here this is referred to as
+`input/` or `templates/` is changed. Here this is referred to as
 "hot reloading".
 
 `jenny` uses websockets for this. On startup and each time a change is

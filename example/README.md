@@ -1,7 +1,7 @@
 ```
 .
 ├── configuration.yaml
-├── content
+├── input
 │   ├── index.md
 │   ├── post1.md
 │   ├── post2.md

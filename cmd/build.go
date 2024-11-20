@@ -69,14 +69,14 @@ func build() error {
 
 	// copy over non-markdown files
 	for _, nonMdFile := range nonMdFiles {
-		contentPath := filepath.Join(configYaml.Content, nonMdFile)
+		inputPath := filepath.Join(configYaml.Input, nonMdFile)
 		outputPath := filepath.Join(configYaml.Output, nonMdFile)
 		parentDir := filepath.Dir(outputPath)
 		if err := os.MkdirAll(parentDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
 		}
-		if err := copyFile(outputPath, contentPath); err != nil {
-			return fmt.Errorf("failed to copy %s to %s: %w", contentPath, outputPath, err)
+		if err := copyFile(outputPath, inputPath); err != nil {
+			return fmt.Errorf("failed to copy %s to %s: %w", inputPath, outputPath, err)
 		}
 	}
 
@@ -117,7 +117,7 @@ func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error
 			Config: configYaml,
 		},
 	}
-	gatherFilesFunc := func(contentPath string, dirEntry fs.DirEntry, err error) error {
+	gatherFilesFunc := func(inputPath string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -125,30 +125,30 @@ func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error
 			return nil
 		}
 
-		relativePath, err := filepath.Rel(configYaml.Content, contentPath)
+		relativePath, err := filepath.Rel(configYaml.Input, inputPath)
 		if err != nil {
-			return fmt.Errorf("failed to get relative path of %s: %w", contentPath, err)
+			return fmt.Errorf("failed to get relative path of %s: %w", inputPath, err)
 		}
 
-		if ext := filepath.Ext(contentPath); ext != ".md" {
+		if ext := filepath.Ext(inputPath); ext != ".md" {
 			nonMdFiles = append(nonMdFiles, relativePath)
 			return nil
 		}
 
 		// get output path
-		parentDir, fileName := filepath.Split(contentPath)
+		parentDir, fileName := filepath.Split(inputPath)
 		parts := strings.Split(fileName, ".")
 		if len(parts) != 2 {
 			return fmt.Errorf("failed to split %q into name and extension", dirEntry.Name())
 		}
-		relativeParentDir, err := filepath.Rel(configYaml.Content, parentDir)
+		relativeParentDir, err := filepath.Rel(configYaml.Input, parentDir)
 		if err != nil {
-			return fmt.Errorf("failed to get path of parent dir %s relative to %s: %w", parentDir, configYaml.Content, err)
+			return fmt.Errorf("failed to get path of parent dir %s relative to %s: %w", parentDir, configYaml.Input, err)
 		}
 
-		contentFile, err := content.ReadFile(contentPath)
+		contentFile, err := content.ReadFile(inputPath)
 		if err != nil {
-			return fmt.Errorf("failed to parse %s: %w", contentPath, err)
+			return fmt.Errorf("failed to parse %s: %w", inputPath, err)
 		}
 		contentFile.Path = filepath.Join("/", relativeParentDir, parts[0]+".html")
 		templateData.Pages = append(templateData.Pages, contentFile)
@@ -156,7 +156,7 @@ func gatherFileInfo(configYaml config.ConfigYaml) ([]string, TemplateData, error
 		return nil
 	}
 
-	if err := filepath.WalkDir(configYaml.Content, gatherFilesFunc); err != nil {
+	if err := filepath.WalkDir(configYaml.Input, gatherFilesFunc); err != nil {
 		return nil, TemplateData{}, fmt.Errorf("failed to build: %w", err)
 	}
 

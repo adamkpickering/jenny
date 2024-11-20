@@ -9,7 +9,7 @@ import (
 )
 
 type ConfigYaml struct {
-	Content   string `yaml:"Content"`
+	Input     string `yaml:"Input"`
 	Output    string `yaml:"Output"`
 	Templates string `yaml:"Templates"`
 }
@@ -35,8 +35,8 @@ func ReadFile(configYamlPath string) (ConfigYaml, error) {
 }
 
 func (configYaml *ConfigYaml) setDefaults() {
-	if configYaml.Content == "" {
-		configYaml.Content = "content"
+	if configYaml.Input == "" {
+		configYaml.Input = "input"
 	}
 	if configYaml.Output == "" {
 		configYaml.Output = "output"

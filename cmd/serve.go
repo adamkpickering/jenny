@@ -179,6 +179,17 @@ forloop:
 			break forloop
 		}
 
+		// File change events are not always singular. For example, an editor that
+		// is making a change to a file could move the file to a backup location,
+		// create a new file at the path of the file it is modifying, write the
+		// new contents there, and delete the backup. All of this takes time, and
+		// we use fsnotify in such a way that we only get the first of these
+		// events, so it is possible that we start building the site before the
+		// editor (or whatever) is finished making changes. Introduce a delay to
+		// prevent this. The duration of the delay may need to be adjusted based
+		// on real-world experience.
+		time.Sleep(200 * time.Millisecond)
+
 		// rebuild
 		log.Printf("build triggered by change to %s", filePath)
 		if err := build(); err != nil {
@@ -190,9 +201,6 @@ forloop:
 			break forloop
 		}
 		reloadNotificationChan <- struct{}{}
-
-		// avoid unnecessary rebuilds
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	// clean up

@@ -1,14 +1,9 @@
-<!DOCTYPE html><html><head>
-  <link rel="stylesheet" href="/static/style.css"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
- <script>
-  let ws = new WebSocket("http://localhost:9023/websocket");
-  ws.onmessage = (event) => {
-    if (event.data === "reload") {
-      window.location.reload();
-    }
-  }
-</script></head>
+<!DOCTYPE html>
+<html>
+ <head>
+  <link rel="stylesheet" href="/static/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+ </head>
  <body>
   <header>
    <div>
@@ -16,9 +11,9 @@
    </div>
    <nav>
     <a href="/">Home</a>
-     
+    &nbsp
     <a href="/post1.html">Post 1</a>
-     
+    &nbsp
     <a href="/post2.html">Post 2</a>
    </nav>
   </header>
@@ -40,8 +35,7 @@ might find useful:</p>
 
   </main>
   <footer>
-  Copyright © 2024 Example Site
+  Copyright &copy; 2024 Example Site
   </footer>
- 
-
-</body></html>
+ </body>
+</html>

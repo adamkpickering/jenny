@@ -105,7 +105,7 @@ func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.Respons
 				}
 				return
 			case <-reloadNotifcationChan:
-				if err := conn.Write(context.Background(), websocket.MessageText, []byte("reload")); err != nil {
+				if err := conn.Write(context.Background(), websocket.MessageText, []byte(reloadMsg)); err != nil {
 					log.Printf("failed to write: %s", err)
 					return
 				}
@@ -279,46 +279,6 @@ func injectReloadScript(filePath string, websocketUrl *url.URL) error {
 	}
 
 	return errors.New("failed to find index of <html> or </head>")
-
-	// fd, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to open: %w", err)
-	// }
-	// defer fd.Close()
-
-	// document, err := html.Parse(fd)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to parse: %w", err)
-	// }
-	// found := false
-	// for node := range document.Descendants() {
-	// 	if node.Type == html.ElementNode && node.DataAtom == atom.Head {
-	// 		reloadScript := fmt.Sprintf(reloadScriptTemplate, websocketUrl.Host, websocketUrl.Path, reloadMsg)
-	// 		scriptNode := &html.Node{
-	// 			Type: html.RawNode,
-	// 			Data: reloadScript,
-	// 		}
-	// 		node.AppendChild(scriptNode)
-	// 		found = true
-	// 		break
-	// 	}
-	// }
-	// if !found {
-	// 	return errors.New("failed to find head element")
-	// }
-
-	// if err := fd.Truncate(0); err != nil {
-	// 	return fmt.Errorf("failed to truncate: %w", err)
-	// }
-	// if _, err := fd.Seek(0, io.SeekStart); err != nil {
-	// 	return fmt.Errorf("failed to seek: %w", err)
-	// }
-
-	// if err := html.Render(fd, document); err != nil {
-	// 	return fmt.Errorf("failed to render modified document: %w", err)
-	// }
-
-	// return nil
 }
 
 func getReloadScript(websocketUrl *url.URL) string {

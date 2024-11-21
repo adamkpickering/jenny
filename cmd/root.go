@@ -32,3 +32,8 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
+func SetVersionInfo(version string) {
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate("{{ .Version }}\n")
+}

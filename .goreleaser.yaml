@@ -1,0 +1,23 @@
+project_name: partner-charts-ci
+
+builds:
+  - main: main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+      - dragonfly
+      - freebsd
+      - netbsd
+      - openbsd
+    goarch:
+      - amd64
+      - arm64
+
+universal_binaries:
+  - replace: true
+
+archives:
+  - format: binary

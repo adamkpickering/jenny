@@ -1,0 +1,4 @@
+issues:
+  exclude-rules:
+    - linters: errcheck
+      text: CloseNow

@@ -45,6 +45,12 @@ var serveCmd = &cobra.Command{
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
+	// We do not want to modify the files in the actual output
+	// directory as part of this command.
+	tempOutputDir, err := os.MkdirTemp("", "jenny-serve-output-*")
+	configYaml.Output = tempOutputDir
+	log.Printf("using output directory %s", configYaml.Output)
+
 	websocketUrl, err := url.Parse("http://" + host + websocketPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse websocket URL: %w", err)

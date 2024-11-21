@@ -150,6 +150,22 @@ Config:
     Templates: templates
 ```
 
+
+## Installation
+
+Binaries are available from the [releases page](https://github.com/adamkpickering/clsr/releases).
+
+Alternatively if you have a Go toolchain installed you may use
+`go install`:
+```
+go install github.com/adamkpickering/jenny@latest
+```
+Note that if you do this, `jenny --version` will output `development`,
+not a real version. This is because `goreleaser` or `go build` with
+the `-ldflags` argument is needed to specify the version during the
+build.
+
+
 ## How does hot reloading work?
 
 In order to make development of your site as easy as possible, `jenny`

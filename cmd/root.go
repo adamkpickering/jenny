@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const configPath = "configuration.yaml"
-
 var configYaml config.ConfigYaml
 
 var rootCmd = &cobra.Command{
@@ -17,16 +15,19 @@ var rootCmd = &cobra.Command{
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
+	PersistentPreRunE: populateConfigYaml,
+}
+
+func populateConfigYaml(cmd *cobra.Command, args []string) error {
+	var err error
+	configYaml, err = config.Get()
+	if err != nil {
+		return fmt.Errorf("failed to get config: %w", err)
+	}
+	return nil
 }
 
 func Execute() {
-	newConfig, err := config.ReadFile(configPath)
-	if err != nil {
-		fmt.Printf("error: %s\n", err)
-		os.Exit(1)
-	}
-	configYaml = newConfig
-
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("error: %s\n", err)
 		os.Exit(1)

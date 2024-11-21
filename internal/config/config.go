@@ -8,16 +8,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const configPath = "configuration.yaml"
+
 type ConfigYaml struct {
 	Input     string `yaml:"Input"`
 	Output    string `yaml:"Output"`
 	Templates string `yaml:"Templates"`
 }
 
-func ReadFile(configYamlPath string) (ConfigYaml, error) {
+func Get() (ConfigYaml, error) {
 	configYaml := ConfigYaml{}
 
-	fd, err := os.Open(configYamlPath)
+	fd, err := os.Open(configPath)
 	if !errors.Is(err, os.ErrNotExist) {
 		if err != nil {
 			return ConfigYaml{}, fmt.Errorf("failed to open: %s", err)

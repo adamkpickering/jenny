@@ -11,14 +11,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
-
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 )
 
 const reloadScriptTemplate = `<script>
@@ -231,45 +229,90 @@ func modifyHtmlFiles(websocketUrl *url.URL) error {
 }
 
 // injectScript injects the reloading script into a given .html file.
-// host is the host and port of
+// Does not use golang.org/x/net/html because that package converts
+// escaped HTML to the thing it represents (but only sometimes), and
+// our needs are simple.
 func injectReloadScript(filePath string, websocketUrl *url.URL) error {
-	fd, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to open: %w", err)
-	}
-	defer fd.Close()
+	headEndRegex := regexp.MustCompile(`\<\/head\>`)
+	htmlOpenRegex := regexp.MustCompile(`\<html\>`)
+	reloadScript := getReloadScript(websocketUrl)
 
-	document, err := html.Parse(fd)
+	byteContents, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to parse: %w", err)
+		return fmt.Errorf("failed to read: %w", err)
 	}
-	found := false
-	for node := range document.Descendants() {
-		if node.Type == html.ElementNode && node.DataAtom == atom.Head {
-			reloadScript := fmt.Sprintf(reloadScriptTemplate, websocketUrl.Host, websocketUrl.Path, reloadMsg)
-			scriptNode := &html.Node{
-				Type: html.RawNode,
-				Data: reloadScript,
-			}
-			node.AppendChild(scriptNode)
-			found = true
-			break
+	contents := string(byteContents)
+
+	// Try to find the closing head element (i.e. </head>) and insert
+	// the script immediately before it.
+	loc := headEndRegex.FindStringIndex(contents)
+	if loc != nil {
+		before := contents[0:loc[0]]
+		after := contents[loc[0]:]
+		newContents := before + reloadScript + after
+		if err := os.WriteFile(filePath, []byte(newContents), 0o644); err != nil {
+			return fmt.Errorf("failed to write injected file: %w", err)
 		}
-	}
-	if !found {
-		return errors.New("failed to find head element")
+		return nil
 	}
 
-	if err := fd.Truncate(0); err != nil {
-		return fmt.Errorf("failed to truncate: %w", err)
-	}
-	if _, err := fd.Seek(0, 0); err != nil {
-		return fmt.Errorf("failed to seek: %w", err)
+	// Assume that <head>...</head> does not exist in the document. Try to
+	// find the opening html element (i.e. <html>) and insert the script,
+	// wrapped in <head>...</head>, immediately after it.
+	loc = htmlOpenRegex.FindStringIndex(contents)
+	if loc != nil {
+		before := contents[0:loc[1]]
+		after := contents[loc[1]:]
+		newContents := before + `<head>` + reloadScript + `</head>` + after
+		if err := os.WriteFile(filePath, []byte(newContents), 0o644); err != nil {
+			return fmt.Errorf("failed to write injected file: %w", err)
+		}
+		return nil
 	}
 
-	if err := html.Render(fd, document); err != nil {
-		return fmt.Errorf("failed to render modified document: %w", err)
-	}
+	return errors.New("failed to find index of <html> or </head>")
 
-	return nil
+	// fd, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to open: %w", err)
+	// }
+	// defer fd.Close()
+
+	// document, err := html.Parse(fd)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to parse: %w", err)
+	// }
+	// found := false
+	// for node := range document.Descendants() {
+	// 	if node.Type == html.ElementNode && node.DataAtom == atom.Head {
+	// 		reloadScript := fmt.Sprintf(reloadScriptTemplate, websocketUrl.Host, websocketUrl.Path, reloadMsg)
+	// 		scriptNode := &html.Node{
+	// 			Type: html.RawNode,
+	// 			Data: reloadScript,
+	// 		}
+	// 		node.AppendChild(scriptNode)
+	// 		found = true
+	// 		break
+	// 	}
+	// }
+	// if !found {
+	// 	return errors.New("failed to find head element")
+	// }
+
+	// if err := fd.Truncate(0); err != nil {
+	// 	return fmt.Errorf("failed to truncate: %w", err)
+	// }
+	// if _, err := fd.Seek(0, io.SeekStart); err != nil {
+	// 	return fmt.Errorf("failed to seek: %w", err)
+	// }
+
+	// if err := html.Render(fd, document); err != nil {
+	// 	return fmt.Errorf("failed to render modified document: %w", err)
+	// }
+
+	// return nil
+}
+
+func getReloadScript(websocketUrl *url.URL) string {
+	return fmt.Sprintf(reloadScriptTemplate, websocketUrl.Host, websocketUrl.Path, reloadMsg)
 }

@@ -148,6 +148,7 @@ forloop:
 		}
 		if err := watcher.Add(configYaml.Templates); err != nil {
 			log.Printf("failed to watch %s: %s", configYaml.Templates, err)
+			break forloop
 		}
 		err = filepath.WalkDir(configYaml.Input, func(walkPath string, dirEntry fs.DirEntry, err error) error {
 			if err != nil {
@@ -174,15 +175,17 @@ forloop:
 			}
 		case event, ok := <-watcher.Events:
 			if !ok {
-				break forloop
+				log.Print("watcher events channel closed")
+				continue forloop
 			}
 			filePath = event.Name
 		case err, ok := <-watcher.Errors:
 			if !ok {
-				break forloop
+				log.Print("watcher errors channel closed")
+			} else {
+				log.Printf("error from watcher: %s", err)
 			}
-			log.Printf("error from watcher: %s", err)
-			break forloop
+			continue forloop
 		}
 
 		// File change events are not always singular. For example, an editor that

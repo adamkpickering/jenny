@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/adamkpickering/jenny/internal/notify"
 	"github.com/coder/websocket"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
@@ -55,14 +56,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 
-	reloadNotificationChan := make(chan struct{})
-	defer close(reloadNotificationChan)
+	notifier := notify.New()
+	defer notifier.CloseAll()
 
-	go watchAndBuild(ctx, stop, reloadNotificationChan)
+	go watchAndBuild(ctx, stop, notifier)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", addLogging(http.FileServerFS(os.DirFS(configYaml.Output))))
-	mux.HandleFunc("/websocket", handleWebsocket(reloadNotificationChan))
+	mux.HandleFunc("/websocket", handleWebsocket(notifier))
 	server := http.Server{
 		Addr:    host,
 		Handler: mux,
@@ -91,8 +92,11 @@ func addLogging(handler http.Handler) http.HandlerFunc {
 	}
 }
 
-func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.ResponseWriter, req *http.Request) {
+func handleWebsocket(notifier *notify.Notifier) func(rw http.ResponseWriter, req *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
+		notifier.Register(req.RemoteAddr)
+		defer notifier.Close(req.RemoteAddr)
+
 		opts := &websocket.AcceptOptions{
 			InsecureSkipVerify: true,
 		}
@@ -111,7 +115,7 @@ func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.Respons
 					log.Printf("failed to close: %s", err)
 				}
 				return
-			case <-reloadNotifcationChan:
+			case <-notifier.Get(req.RemoteAddr):
 				if err := conn.Write(context.Background(), websocket.MessageText, []byte("reload")); err != nil {
 					log.Printf("failed to write: %s", err)
 					return
@@ -121,7 +125,7 @@ func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.Respons
 	}
 }
 
-func watchAndBuild(ctx context.Context, stop func(), reloadNotificationChan chan<- struct{}) {
+func watchAndBuild(ctx context.Context, stop func(), notifier *notify.Notifier) {
 	var watcher *fsnotify.Watcher
 	var err error
 	filePath := ""
@@ -210,7 +214,7 @@ forloop:
 			log.Printf("failed to modify HTML files: %s", err)
 			break forloop
 		}
-		reloadNotificationChan <- struct{}{}
+		notifier.Notify()
 	}
 
 	// clean up

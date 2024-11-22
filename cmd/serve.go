@@ -39,7 +39,7 @@ func init() {
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Serve static site",
+	Short: "Serve development build of static site",
 	Args:  cobra.NoArgs,
 	RunE:  runServe,
 }
@@ -95,7 +95,10 @@ func addLogging(handler http.Handler) http.HandlerFunc {
 
 func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.ResponseWriter, req *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
-		conn, err := websocket.Accept(rw, req, nil)
+		opts := &websocket.AcceptOptions{
+			InsecureSkipVerify: true,
+		}
+		conn, err := websocket.Accept(rw, req, opts)
 		if err != nil {
 			log.Printf("failed to accept: %s", err)
 			return

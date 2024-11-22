@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -19,16 +18,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const reloadScriptTemplate = `<script>
-  let ws = new WebSocket("http://%s%s");
+const reloadScript = `<script>
+  let wsUrl = new URL(window.location.href);
+  wsUrl.pathname = "/websocket";
+  let ws = new WebSocket(wsUrl);
   ws.onmessage = (event) => {
-    if (event.data === "%s") {
+    if (event.data === "reload") {
       window.location.reload();
     }
   }
 </script>`
-const reloadMsg = "reload"
-const websocketPath = "/websocket"
 
 var host string
 
@@ -48,23 +47,22 @@ func runServe(cmd *cobra.Command, args []string) error {
 	// We do not want to modify the files in the actual output
 	// directory as part of this command.
 	tempOutputDir, err := os.MkdirTemp("", "jenny-serve-output-*")
+	if err != nil {
+		return fmt.Errorf("failed to get temporary directory: %w", err)
+	}
 	configYaml.Output = tempOutputDir
 	log.Printf("using output directory %s", configYaml.Output)
 
-	websocketUrl, err := url.Parse("http://" + host + websocketPath)
-	if err != nil {
-		return fmt.Errorf("failed to parse websocket URL: %w", err)
-	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 
 	reloadNotificationChan := make(chan struct{})
 	defer close(reloadNotificationChan)
 
-	go watchAndBuild(ctx, stop, reloadNotificationChan, websocketUrl)
+	go watchAndBuild(ctx, stop, reloadNotificationChan)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", addLogging(http.FileServerFS(os.DirFS(configYaml.Output))))
-	mux.HandleFunc(websocketPath, handleWebsocket(reloadNotificationChan))
+	mux.HandleFunc("/websocket", handleWebsocket(reloadNotificationChan))
 	server := http.Server{
 		Addr:    host,
 		Handler: mux,
@@ -114,7 +112,7 @@ func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.Respons
 				}
 				return
 			case <-reloadNotifcationChan:
-				if err := conn.Write(context.Background(), websocket.MessageText, []byte(reloadMsg)); err != nil {
+				if err := conn.Write(context.Background(), websocket.MessageText, []byte("reload")); err != nil {
 					log.Printf("failed to write: %s", err)
 					return
 				}
@@ -123,7 +121,7 @@ func handleWebsocket(reloadNotifcationChan <-chan struct{}) func(rw http.Respons
 	}
 }
 
-func watchAndBuild(ctx context.Context, stop func(), reloadNotificationChan chan<- struct{}, websocketUrl *url.URL) {
+func watchAndBuild(ctx context.Context, stop func(), reloadNotificationChan chan<- struct{}) {
 	var watcher *fsnotify.Watcher
 	var err error
 	filePath := ""
@@ -133,7 +131,7 @@ func watchAndBuild(ctx context.Context, stop func(), reloadNotificationChan chan
 		log.Printf("failed to build: %s", err)
 		return
 	}
-	if err := modifyHtmlFiles(websocketUrl); err != nil {
+	if err := modifyHtmlFiles(); err != nil {
 		log.Printf("failed to modify HTML files: %s", err)
 		return
 	}
@@ -208,7 +206,7 @@ forloop:
 			log.Printf("failed to build: %s", err)
 			break forloop
 		}
-		if err := modifyHtmlFiles(websocketUrl); err != nil {
+		if err := modifyHtmlFiles(); err != nil {
 			log.Printf("failed to modify HTML files: %s", err)
 			break forloop
 		}
@@ -222,7 +220,7 @@ forloop:
 	stop()
 }
 
-func modifyHtmlFiles(websocketUrl *url.URL) error {
+func modifyHtmlFiles() error {
 	walkDirFunc := func(outputPath string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -234,7 +232,7 @@ func modifyHtmlFiles(websocketUrl *url.URL) error {
 			return nil
 		}
 
-		if err := injectReloadScript(outputPath, websocketUrl); err != nil {
+		if err := injectReloadScript(outputPath); err != nil {
 			return fmt.Errorf("failed to inject reload script into %s: %w", outputPath, err)
 		}
 
@@ -252,10 +250,9 @@ func modifyHtmlFiles(websocketUrl *url.URL) error {
 // Does not use golang.org/x/net/html because that package converts
 // escaped HTML to the thing it represents (but only sometimes), and
 // our needs are simple.
-func injectReloadScript(filePath string, websocketUrl *url.URL) error {
+func injectReloadScript(filePath string) error {
 	headEndRegex := regexp.MustCompile(`\<\/head\>`)
 	htmlOpenRegex := regexp.MustCompile(`\<html\>`)
-	reloadScript := getReloadScript(websocketUrl)
 
 	byteContents, err := os.ReadFile(filePath)
 	if err != nil {
@@ -291,8 +288,4 @@ func injectReloadScript(filePath string, websocketUrl *url.URL) error {
 	}
 
 	return errors.New("failed to find index of <html> or </head>")
-}
-
-func getReloadScript(websocketUrl *url.URL) string {
-	return fmt.Sprintf(reloadScriptTemplate, websocketUrl.Host, websocketUrl.Path, reloadMsg)
 }

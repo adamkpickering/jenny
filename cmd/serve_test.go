@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,11 +16,7 @@ func TestInjectReloadScript(t *testing.T) {
 		if err := os.WriteFile(testFilePath, []byte(testContents), 0o644); err != nil {
 			t.Fatalf("failed to write test file: %s", err)
 		}
-		websocketUrl := &url.URL{
-			Path: "/websocket",
-			Host: "localhost:1234",
-		}
-		if err := injectReloadScript(testFilePath, websocketUrl); err != nil {
+		if err := injectReloadScript(testFilePath); err != nil {
 			t.Fatalf("unexpected error in injectReloadScript(): %s", err)
 		}
 		newByteContents, err := os.ReadFile(testFilePath)
@@ -29,7 +24,7 @@ func TestInjectReloadScript(t *testing.T) {
 			t.Fatalf("failed to read modified test file: %s", err)
 		}
 		newContents := string(newByteContents)
-		expectedContents := fmt.Sprintf(contentTemplate, getReloadScript(websocketUrl))
+		expectedContents := fmt.Sprintf(contentTemplate, reloadScript)
 		if newContents != expectedContents {
 			t.Errorf("got contents %q but expected contents %q", newContents, expectedContents)
 		}
@@ -43,11 +38,7 @@ func TestInjectReloadScript(t *testing.T) {
 		if err := os.WriteFile(testFilePath, []byte(testContents), 0o644); err != nil {
 			t.Fatalf("failed to write test file: %s", err)
 		}
-		websocketUrl := &url.URL{
-			Path: "/websocket",
-			Host: "localhost:1234",
-		}
-		if err := injectReloadScript(testFilePath, websocketUrl); err != nil {
+		if err := injectReloadScript(testFilePath); err != nil {
 			t.Fatalf("unexpected error in injectReloadScript(): %s", err)
 		}
 		newByteContents, err := os.ReadFile(testFilePath)
@@ -55,7 +46,7 @@ func TestInjectReloadScript(t *testing.T) {
 			t.Fatalf("failed to read modified test file: %s", err)
 		}
 		newContents := string(newByteContents)
-		expectedContents := fmt.Sprintf(contentTemplate, `<head>`+getReloadScript(websocketUrl)+`</head>`)
+		expectedContents := fmt.Sprintf(contentTemplate, `<head>`+reloadScript+`</head>`)
 		if newContents != expectedContents {
 			t.Errorf("got contents %q but expected contents %q", newContents, expectedContents)
 		}
@@ -68,12 +59,7 @@ func TestInjectReloadScript(t *testing.T) {
 		if err := os.WriteFile(testFilePath, []byte(testContents), 0o644); err != nil {
 			t.Fatalf("failed to write test file: %s", err)
 		}
-		websocketUrl := &url.URL{
-			Path: "/websocket",
-			Host: "localhost:1234",
-		}
-
-		err := injectReloadScript(testFilePath, websocketUrl)
+		err := injectReloadScript(testFilePath)
 		if err == nil {
 			t.Fatalf("did not get error from injectReloadScript when we should have")
 		}

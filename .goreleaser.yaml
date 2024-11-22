@@ -1,4 +1,4 @@
-project_name: partner-charts-ci
+project_name: jenny
 
 builds:
   - main: main.go
